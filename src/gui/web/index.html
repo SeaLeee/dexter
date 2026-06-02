@@ -1,0 +1,217 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Dexter · 金融研究工作台</title>
+    <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'><text y='52' font-size='52'>📊</text></svg>" />
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.4/dist/chart.umd.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/marked@12.0.2/marked.min.js"></script>
+    <link rel="stylesheet" href="/styles.css" />
+    <script>
+      tailwind.config = {
+        theme: {
+          extend: {
+            colors: {
+              ink: { 950: '#0a0f1a', 900: '#0f1626', 800: '#152038', 700: '#1d2a48' },
+              accent: { 400: '#5eead4', 500: '#14b8a6', 600: '#0d9488' },
+              gold: { 400: '#fbbf24', 500: '#f59e0b' },
+            },
+          },
+        },
+      };
+    </script>
+  </head>
+  <body class="bg-ink-950 text-slate-100 antialiased">
+    <div id="app" class="flex h-screen overflow-hidden">
+      <!-- Sidebar -->
+      <aside class="w-60 shrink-0 bg-ink-900 border-r border-ink-700 flex flex-col">
+        <div class="px-5 py-5 border-b border-ink-700">
+          <div class="flex items-center gap-2">
+            <span class="text-2xl">📊</span>
+            <div>
+              <div class="font-bold text-lg leading-tight">Dexter</div>
+              <div class="text-xs text-slate-400">AI 金融研究工作台</div>
+            </div>
+          </div>
+        </div>
+        <nav id="nav" class="flex-1 px-2 py-4 space-y-1 text-sm">
+          <button data-view="research" class="nav-btn active">💬 <span>研究对话</span></button>
+          <button data-view="dashboard" class="nav-btn">📈 <span>行情看板</span></button>
+          <button data-view="tools" class="nav-btn">🧰 <span>工具与技能</span></button>
+          <button data-view="archives" class="nav-btn">📋 <span>总结归档</span></button>
+          <button data-view="settings" class="nav-btn">⚙️ <span>模型与设置</span></button>
+        </nav>
+        <div class="px-4 py-3 border-t border-ink-700 text-xs text-slate-400">
+          <div>当前模型</div>
+          <div id="sidebar-model" class="text-accent-400 font-medium truncate">—</div>
+          <div id="sidebar-provider" class="text-slate-500 truncate">—</div>
+        </div>
+      </aside>
+
+      <!-- Main views -->
+      <main class="flex-1 overflow-hidden flex flex-col">
+        <!-- Research view -->
+        <section data-view="research" class="view flex-1 flex flex-col overflow-hidden">
+          <header class="flex items-center justify-between px-6 py-3 border-b border-ink-800">
+            <div>
+              <h1 class="text-lg font-semibold">研究对话</h1>
+              <p class="text-xs text-slate-400">与 Dexter agent 对话，实时查看工具调用与推理过程</p>
+            </div>
+            <div class="flex gap-2 items-center text-xs">
+              <span id="run-status" class="text-slate-400">就绪</span>
+              <button id="cancel-btn" class="hidden btn-secondary">停止</button>
+            </div>
+          </header>
+          <div id="events" class="flex-1 overflow-y-auto px-6 py-4 space-y-3"></div>
+          <div class="border-t border-ink-800 px-6 py-3 bg-ink-900/60">
+            <div class="flex gap-2 mb-2 flex-wrap items-center" id="skill-chips">
+              <span class="text-xs text-slate-500 mr-1">快捷工作流:</span>
+              <button class="skill-chip" data-template="帮我写一份 AAPL 的完整投资研究报告" data-sel-start="6" data-sel-end="10">📊 完整研报</button>
+              <button class="skill-chip" data-template="分析 AAPL 的商业模式和竞争护城河" data-sel-start="3" data-sel-end="7">🏢 商业分析</button>
+              <button class="skill-chip" data-template="对 AAPL 做一次全面的财务健康分析" data-sel-start="2" data-sel-end="6">💰 财务体检</button>
+              <button class="skill-chip" data-template="用可比公司法给 AAPL 做估值分析" data-sel-start="8" data-sel-end="12">📈 可比估值</button>
+              <button class="skill-chip" data-template="对 AAPL 做一次 DCF 估值" data-sel-start="2" data-sel-end="6">💎 DCF估值</button>
+            </div>
+            <form id="query-form" class="flex gap-2">
+              <input
+                id="query-input"
+                class="flex-1 bg-ink-800 border border-ink-700 rounded-lg px-4 py-2 text-sm focus:outline-none focus:border-accent-500"
+                placeholder="提问，如：评估 NVDA 当前估值..."
+                autocomplete="off"
+              />
+              <button class="btn-primary" type="submit">运行</button>
+            </form>
+          </div>
+        </section>
+
+        <!-- Dashboard view -->
+        <section data-view="dashboard" class="view hidden flex-1 overflow-y-auto px-6 py-5">
+          <header class="mb-4 flex items-end justify-between flex-wrap gap-3">
+            <div>
+              <h1 class="text-lg font-semibold">行情看板</h1>
+              <p class="text-xs text-slate-400">输入股票代码加载历史价格、关键指标与快照</p>
+            </div>
+            <form id="ticker-form" class="flex gap-2 items-center">
+              <input
+                id="ticker-input"
+                value="AAPL"
+                class="bg-ink-800 border border-ink-700 rounded-lg px-3 py-2 text-sm w-32 uppercase tracking-wider focus:outline-none focus:border-accent-500"
+              />
+              <select id="range-select" class="bg-ink-800 border border-ink-700 rounded-lg px-3 py-2 text-sm">
+                <option value="30">30 天</option>
+                <option value="90" selected>90 天</option>
+                <option value="180">180 天</option>
+                <option value="365">1 年</option>
+              </select>
+              <button class="btn-primary" type="submit">加载</button>
+            </form>
+          </header>
+
+          <div id="snapshot-cards" class="grid grid-cols-2 md:grid-cols-4 gap-3 mb-5">
+            <div class="card"><div class="label">最新价</div><div id="snap-price" class="value">—</div></div>
+            <div class="card"><div class="label">日内涨跌</div><div id="snap-change" class="value">—</div></div>
+            <div class="card"><div class="label">日内最高</div><div id="snap-high" class="value">—</div></div>
+            <div class="card"><div class="label">日内最低</div><div id="snap-low" class="value">—</div></div>
+          </div>
+
+          <div class="grid grid-cols-1 lg:grid-cols-3 gap-4">
+            <div class="lg:col-span-2 bg-ink-900 border border-ink-800 rounded-xl p-4">
+              <div class="flex justify-between items-center mb-3">
+                <h2 class="font-semibold text-sm">收盘价走势</h2>
+                <span id="price-status" class="text-xs text-slate-400">—</span>
+              </div>
+              <div class="relative h-72"><canvas id="price-chart"></canvas></div>
+            </div>
+            <div class="bg-ink-900 border border-ink-800 rounded-xl p-4">
+              <h2 class="font-semibold text-sm mb-3">成交量</h2>
+              <div class="relative h-72"><canvas id="volume-chart"></canvas></div>
+            </div>
+          </div>
+
+          <div class="mt-5 bg-ink-900 border border-ink-800 rounded-xl p-4">
+            <h2 class="font-semibold text-sm mb-3">关键比率（快照）</h2>
+            <div id="metrics-grid" class="grid grid-cols-2 md:grid-cols-4 gap-3 text-sm">
+              <div class="text-slate-400 col-span-full">加载行情后显示…</div>
+            </div>
+          </div>
+        </section>
+
+        <!-- Tools view -->
+        <section data-view="tools" class="view hidden flex-1 overflow-y-auto px-6 py-5">
+          <header class="mb-4">
+            <h1 class="text-lg font-semibold">工具与技能</h1>
+            <p class="text-xs text-slate-400">当前 agent 可调用的工具与已发现的 Skill 工作流</p>
+          </header>
+          <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+            <div>
+              <h2 class="text-sm font-semibold mb-2 text-slate-300">🧰 已注册工具</h2>
+              <div id="tools-list" class="space-y-2"></div>
+            </div>
+            <div>
+              <h2 class="text-sm font-semibold mb-2 text-slate-300">🎯 已发现 Skills</h2>
+              <div id="skills-list" class="space-y-2"></div>
+            </div>
+          </div>
+        </section>
+
+        <!-- Archives view -->
+        <section data-view="archives" class="view hidden flex-1 overflow-hidden flex flex-col">
+          <header class="flex items-center justify-between px-6 py-3 border-b border-ink-800">
+            <div>
+              <h1 class="text-lg font-semibold">总结归档</h1>
+              <p class="text-xs text-slate-400">已归档的研究对话，可随时浏览回顾</p>
+            </div>
+            <button id="refresh-archives-btn" class="btn-secondary">刷新</button>
+          </header>
+          <!-- Archive list view -->
+          <div id="archive-list-view" class="flex-1 overflow-y-auto px-6 py-4">
+            <div id="archive-list" class="space-y-3">
+              <div class="text-slate-500 text-sm">加载中…</div>
+            </div>
+          </div>
+          <!-- Archive detail view -->
+          <div id="archive-detail-view" class="hidden flex-1 overflow-y-auto px-6 py-4">
+            <button id="archive-back-btn" class="btn-secondary mb-4">← 返回列表</button>
+            <div id="archive-detail-content"></div>
+          </div>
+        </section>
+
+        <!-- Settings view -->
+        <section data-view="settings" class="view hidden flex-1 overflow-y-auto px-6 py-5">
+          <header class="mb-4">
+            <h1 class="text-lg font-semibold">模型与设置</h1>
+            <p class="text-xs text-slate-400">选择 LLM 提供商和模型，配置 API Key（支持 DeepSeek、OpenAI、Anthropic、Google、xAI、Moonshot、OpenRouter、Ollama）</p>
+          </header>
+
+          <div class="grid grid-cols-1 lg:grid-cols-2 gap-4">
+            <div class="bg-ink-900 border border-ink-800 rounded-xl p-4">
+              <h2 class="font-semibold text-sm mb-3">选择模型</h2>
+              <label class="block text-xs text-slate-400 mb-1">提供商</label>
+              <select id="provider-select" class="w-full bg-ink-800 border border-ink-700 rounded-lg px-3 py-2 text-sm mb-3"></select>
+              <label class="block text-xs text-slate-400 mb-1">模型</label>
+              <select id="model-select" class="w-full bg-ink-800 border border-ink-700 rounded-lg px-3 py-2 text-sm mb-3"></select>
+              <label class="block text-xs text-slate-400 mb-1">或自定义模型 ID</label>
+              <input id="model-custom" class="w-full bg-ink-800 border border-ink-700 rounded-lg px-3 py-2 text-sm mb-3" placeholder="例：deepseek-reasoner" />
+              <button id="save-model" class="btn-primary w-full">保存为默认模型</button>
+              <p id="save-status" class="text-xs text-accent-400 mt-2 h-4"></p>
+            </div>
+
+            <div class="bg-ink-900 border border-ink-800 rounded-xl p-4">
+              <h2 class="font-semibold text-sm mb-3">LLM API Keys</h2>
+              <div id="api-keys" class="space-y-3"></div>
+            </div>
+          </div>
+
+          <div class="mt-4 bg-ink-900 border border-ink-800 rounded-xl p-4">
+            <h2 class="font-semibold text-sm mb-3">其他服务（数据源、搜索、追踪）</h2>
+            <div id="extra-keys" class="grid grid-cols-1 md:grid-cols-2 gap-3"></div>
+          </div>
+        </section>
+      </main>
+    </div>
+
+    <script src="/app.js" type="module"></script>
+  </body>
+</html>

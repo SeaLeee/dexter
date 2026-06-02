@@ -10,6 +10,8 @@
   "scripts": {
     "start": "bun run src/index.tsx",
     "dev": "bun --watch run src/index.tsx",
+    "gui": "bun run src/gui/server.ts",
+    "gui:dev": "bun --watch run src/gui/server.ts",
     "gateway": "tsx src/gateway/index.ts run",
     "gateway:login": "tsx src/gateway/index.ts login",
     "typecheck": "tsc --noEmit",
